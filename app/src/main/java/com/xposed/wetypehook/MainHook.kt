@@ -1,4 +1,5 @@
 package com.xposed.wetypehook
+
 import android.app.Activity
 import android.content.Context
 import android.content.res.AssetManager
@@ -7,6 +8,7 @@ import android.content.res.Resources
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.provider.Settings
+import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import com.xposed.wetypehook.wetype.hook.WeTypeResourceHooks
@@ -30,6 +32,8 @@ import com.xposed.wetypehook.xposed.sameAs
 import dalvik.system.BaseDexClassLoader
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
+import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -102,7 +106,7 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
         val isWeType = packageName == WETYPE_PACKAGE
 
         if (isWeType) {
-            installWeTypeHooks(packageName)
+            installWeTypeHooks(packageName, lpparam)
         }
 
         if (!isMiuiImeSupport) return
@@ -124,7 +128,7 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
         Log.i("Hook MIUI IME Done!")
     }
 
-    private fun installWeTypeHooks(sourcePackage: String) {
+    private fun installWeTypeHooks(sourcePackage: String, lpparam: XC_LoadPackage.LoadPackageParam) {
         hookActivationHeartbeat(sourcePackage)
         WeTypeSettings.configureStorage(sourcePackage)
         WeTypeSettings.initXposed()
@@ -146,6 +150,7 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
         hookWeTypeAboutLogoEntry()
         WeTypeResourceHooks.hookKeyboardLogo()
         WeTypeResourceHooks.hookToolbarIconBackground()
+        hookWeTypeSwipeGesture(lpparam)  // ← 新增：下滑手势
     }
 
     private fun installBaseImeHooks(forceTransparentBottomView: Boolean) {
@@ -155,10 +160,9 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
             hookSIsImeSupport(clazz)
             hookIsXiaoAiEnable(clazz)
             setPhraseBgColor(clazz, forceTransparentBottomView)
-        } ?: Log.e("Failed:Class not found: InputMethodServiceInjector")
-    }
+        } ?: Log.e(":MethodInject }
 
-    private fun hookInputMethodModuleManager(isNonCustomize: Boolean) {
+    funCustomize: Boolean) {
         runCatching {
             findMethod("android.inputmethodservice.InputMethodModuleManager") {
                 name == "loadDex" && parameterTypes.sameAs(ClassLoader::class.java, String::class.java)
@@ -486,15 +490,8 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
                 customizeBottomViewColor(clazz, forceTransparent)
             }
         }.onFailure {
-            installedHookTokens.remove(token)
-            Log.i("Failed to set the color of the MiuiBottomView")
-            Log.i(it)
-        }
-    }
-
-    private fun customizeBottomViewColor(clazz: Class<*>, forceTransparent: Boolean) {
-        if (forceTransparent) {
-            val contentColor = resolveTransparentBottomViewContentColor()
+           .remove)
+            Log.i("Failed to set the color of the MiuiBottomView Log privateColor Class<*>,Trans) val resolveTransparentBottomViewContentColor()
             clazz.invokeStaticMethodAuto(
                 "customizeBottomViewColor",
                 true,
@@ -565,6 +562,68 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
         }.onFailure {
             Log.i("Failed: Hook method isCallingBetweenCustomIME")
             Log.i(it)
+        }
+    }
+
+    // ===== 新增：下滑手势 Hook =====
+
+    private fun hookWeTypeSwipeGesture(lpparam: XC_LoadPackage.LoadPackageParam) {
+        val keyboardViewClass = "com.tencent.wetype.plugin.hld.keyboard.selfdraw.n"
+        runCatching {
+            XposedHelpers.findAndHookMethod(
+                keyboardViewClass,
+                lpparam.classLoader,
+                "onTouch",
+                View::class.java,
+                MotionEvent::class.java,
+                object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        val event = param.args[1] as? MotionEvent ?: return
+                        if (event.actionMasked != MotionEvent.ACTION_MOVE) return
+
+                        val thisObj = param.thisObject
+                        val currentButton = XposedHelpers.getObjectField(thisObj, "E0") ?: return
+                        val buttonId = XposedHelpers.callMethod(currentButton, "K") as? String ?: return
+
+                        // 只处理主键盘字母键 (S2/S3 开头)
+                        if (!buttonId.startsWith("S2_key_") && !buttonId.startsWith("S3_key_")) return
+
+                        // 从配置读取该按键的操作
+                        val context = XposedHelpers.callMethod(thisObj, "getContext") as? Context ?: return
+                        val action = WeTypeSettings.getSwipeAction(context, buttonId)
+                        if (action == WeTypeSettings.SwipeAction.NONE) return
+
+                        // 下滑检测
+                        val downY = XposedHelpers.getIntField(thisObj, "D0")
+                        val pointerId = XposedHelpers.callMethod(thisObj, "y1", event) as Int
+                        val pointerIndex = event.findPointerIndex(pointerId)
+                        if (pointerIndex < 0) return
+                        val deltaY = event.getY(pointerIndex).toInt() - downY
+                        if (deltaY < 50) return
+
+                        // 执行操作
+                        if (action.menuActionId > 0) {
+                            // 系统菜单动作（全选/复制/粘贴/剪切/撤销/重做）
+                            val listener = XposedHelpers.getObjectField(thisObj, "h")
+                            val imeService = XposedHelpers.callMethod(listener, "e")
+                            val ic = XposedHelpers.callMethod(imeService, "d0")
+                                as? android.view.inputmethod.InputConnection
+                            ic?.performContextMenuAction(action.menuActionId)
+                        } else {
+                            // 输出符号（@ # $ % 等）
+                            val listener = XposedHelpers.getObjectField(thisObj, "h")
+                            val imeService = XposedHelpers.callMethod(listener, "e")
+                            XposedHelpers.callMethod(imeService, "commitText", action.displayName, 1)
+                        }
+
+                        param.result = true  // 阻止原字符输出
+                    }
+                }
+            )
+            Log.i("Success:Hook WeType swipe gesture!")
+        }.onFailure { e ->
+            Log.e("Failed:Hook WeType swipe gesture")
+            Log.i(e)
         }
     }
 
