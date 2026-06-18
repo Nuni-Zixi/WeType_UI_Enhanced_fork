@@ -495,91 +495,84 @@ object WeTypeSettings {
         runCatching { reload() }
         return toSnapshotOrNull()
     }
-}
-// ===== 下滑手势配置 =====
 
-// 按键列表（26键 和 三行键盘的 ID）
-val ALL_LETTER_KEYS = listOf(
-    "S2_key_q","S2_key_w","S2_key_e","S2_key_r","S2_key_t","S2_key_y",
-    "S2_key_u","S2_key_i","S2_key_o","S2_key_p",
-    "S2_key_a","S2_key_s","S2_key_d","S2_key_f","S2_key_g","S2_key_h",
-    "S2_key_j","S2_key_k","S2_key_l",
-    "S2_key_z","S2_key_x","S2_key_c","S2_key_v","S2_key_b",
-    "S2_key_n","S2_key_m"
-)
+    // ===== 下滑手势配置（放在类内部）=====
 
-// 下滑可执行的操作
-enum class SwipeAction(val id: String, val menuActionId: Int, val displayName: String) {
-    NONE("none", -1, "无操作"),
-    SELECT_ALL("select_all", android.R.id.selectAll, "全选"),
-    COPY("copy", android.R.id.copy, "复制"),
-    CUT("cut", android.R.id.cut, "剪切"),
-    PASTE("paste", android.R.id.paste, "粘贴"),
-    UNDO("undo", android.R.id.undo, "撤销"),
-    REDO("redo", android.R.id.redo, "重做"),
-    // 符号类
-    AT("@", -2, "@"),
-    HASH("#", -3, "#"),
-    DOLLAR("\$", -4, "\$"),
-    PERCENT("%", -5, "%"),
-    STAR("*", -6, "*"),
-    MINUS("-", -7, "-"),
-    PLUS("+", -8, "+"),
-    EQUAL("=", -9, "="),
-    SLASH("/", -10, "/"),
-    BACKSLASH("\\", -11, "\\"),
-    PIPE("|", -12, "|"),
-    TILDE("~", -13, "~"),
-    DOT(".", -14, "."),
-    COMMA(",", -15, ","),
-    SEMICOLON(";", -16, ";"),
-    COLON(":", -17, ":"),
-    QUOTE("'", -18, "'"),
-    DOUBLE_QUOTE("\"", -19, "\""),
-    EXCLAMATION("!", -20, "!"),
-    QUESTION("?", -21, "?"),
-    LEFT_PAREN("(", -22, "("),
-    RIGHT_PAREN(")", -23, ")"),
-    LEFT_BRACKET("[", -24, "["),
-    RIGHT_BRACKET("]", -25, "]"),
-    LEFT_BRACE("{", -26, "{"),
-    RIGHT_BRACE("}", -27, "}"),
-    LESS("<", -28, "<"),
-    GREATER(">", -29, ">"),
-    UNDERSCORE("_", -30, "_");
+    val ALL_LETTER_KEYS = listOf(
+        "S2_key_q","S2_key_w","S2_key_e","S2_key_r","S2_key_t","S2_key_y",
+        "S2_key_u","S2_key_i","S2_key_o","S2_key_p",
+        "S2_key_a","S2_key_s","S2_key_d","S2_key_f","S2_key_g","S2_key_h",
+        "S2_key_j","S2_key_k","S2_key_l",
+        "S2_key_z","S2_key_x","S2_key_c","S2_key_v","S2_key_b",
+        "S2_key_n","S2_key_m"
+    )
 
-    companion object {
-        fun fromId(id: String): SwipeAction = entries.find { it.id == id } ?: NONE
-    }
-}
+    enum class SwipeAction(val id: String, val menuActionId: Int, val displayName: String) {
+        NONE("none", -1, "无操作"),
+        SELECT_ALL("select_all", android.R.id.selectAll, "全选"),
+        COPY("copy", android.R.id.copy, "复制"),
+        CUT("cut", android.R.id.cut, "剪切"),
+        PASTE("paste", android.R.id.paste, "粘贴"),
+        UNDO("undo", android.R.id.undo, "撤销"),
+        REDO("redo", android.R.id.redo, "重做"),
+        AT("@", -2, "@"),
+        HASH("#", -3, "#"),
+        DOLLAR("\$", -4, "\$"),
+        PERCENT("%", -5, "%"),
+        STAR("*", -6, "*"),
+        MINUS("-", -7, "-"),
+        PLUS("+", -8, "+"),
+        EQUAL("=", -9, "="),
+        SLASH("/", -10, "/"),
+        BACKSLASH("\\", -11, "\\"),
+        PIPE("|", -12, "|"),
+        TILDE("~", -13, "~"),
+        DOT(".", -14, "."),
+        COMMA(",", -15, ","),
+        SEMICOLON(";", -16, ";"),
+        COLON(":", -17, ":"),
+        QUOTE("'", -18, "'"),
+        DOUBLE_QUOTE("\"", -19, "\""),
+        EXCLAMATION("!", -20, "!"),
+        QUESTION("?", -21, "?"),
+        LEFT_PAREN("(", -22, "("),
+        RIGHT_PAREN(")", -23, ")"),
+        LEFT_BRACKET("[", -24, "["),
+        RIGHT_BRACKET("]", -25, "]"),
+        LEFT_BRACE("{", -26, "{"),
+        RIGHT_BRACE("}", -27, "}"),
+        LESS("<", -28, "<"),
+        GREATER(">", -29, ">"),
+        UNDERSCORE("_", -30, "_");
 
-// 默认配置（Z/C/X/V 预设，其他为 NONE）
-val DEFAULT_SWIPE_CONFIG = mapOf(
-    "S2_key_z" to SwipeAction.SELECT_ALL,
-    "S2_key_c" to SwipeAction.COPY,
-    "S2_key_x" to SwipeAction.CUT,
-    "S2_key_v" to SwipeAction.PASTE,
-    "S2_key_a" to SwipeAction.UNDO,
-    "S2_key_y" to SwipeAction.REDO,
-)
-
-// 读取按键的下滑配置
-fun getSwipeAction(context: Context, keyId: String): SwipeAction {
-    val prefs = appPreferences(context)
-    val stored = prefs.getString("swipe_$keyId", null)
-    return if (stored != null) SwipeAction.fromId(stored) 
-    else DEFAULT_SWIPE_CONFIG[keyId] ?: SwipeAction.NONE
-}
-
-// 保存按键的下滑配置
-fun setSwipeAction(context: Context, keyId: String, action: SwipeAction) {
-    appPreferences(context).edit()
-        .putString("swipe_$keyId", action.id)
-        .commit()
-    cachedXposedSnapshot = null
-    synchronized(xposedPrefsLock) {
-        xposedPrefsCache.values.forEach { prefs ->
-            runCatching { prefs.reload() }
+        companion object {
+            fun fromId(id: String): SwipeAction = entries.find { it.id == id } ?: NONE
         }
     }
-}
+
+    val DEFAULT_SWIPE_CONFIG = mapOf(
+        "S2_key_z" to SwipeAction.SELECT_ALL,
+        "S2_key_c" to SwipeAction.COPY,
+        "S2_key_x" to SwipeAction.CUT,
+        "S2_key_v" to SwipeAction.PASTE,
+    )
+
+    fun getSwipeAction(context: Context, keyId: String): SwipeAction {
+        val prefs = appPreferences(context)
+        val stored = prefs.getString("swipe_$keyId", null)
+        return if (stored != null) SwipeAction.fromId(stored)
+        else DEFAULT_SWIPE_CONFIG[keyId] ?: SwipeAction.NONE
+    }
+
+    fun setSwipeAction(context: Context, keyId: String, action: SwipeAction) {
+        appPreferences(context).edit()
+            .putString("swipe_$keyId", action.id)
+            .commit()
+        cachedXposedSnapshot = null
+        synchronized(xposedPrefsLock) {
+            xposedPrefsCache.values.forEach { prefs ->
+                runCatching { prefs.reload() }
+            }
+        }
+    }
+}  // ← 这是 object WeTypeSettings 的结束
