@@ -205,3 +205,11 @@ private class EmbeddedModuleContext(
         return WeTypeHostLauncher::class.java.classLoader ?: hostBaseContext.classLoader
     }
 }
+// 在设置的 Column 中添加：
+Button(
+    onClick = { /* 导航到手势设置 */ },
+    modifier = Modifier.fillMaxWidth().padding(16.dp),
+    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+) {
+    Text("下滑手势设置", color = Color.White)
+}
