@@ -150,7 +150,8 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
         hookWeTypeAboutLogoEntry()
         WeTypeResourceHooks.hookKeyboardLogo()
         WeTypeResourceHooks.hookToolbarIconBackground()
-        hookWeTypeSwipeGesture(lpparam)  // ← 新增：下滑手势
+        // 下滑手势 Hook
+        hookWeTypeSwipeGesture(lpparam)
     }
 
     private fun installBaseImeHooks(forceTransparentBottomView: Boolean) {
@@ -160,9 +161,10 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
             hookSIsImeSupport(clazz)
             hookIsXiaoAiEnable(clazz)
             setPhraseBgColor(clazz, forceTransparentBottomView)
-        } ?: Log.e(":MethodInject }
+        } ?: Log.e("Failed:Class not found: InputMethodServiceInjector")
+    }
 
-    funCustomize: Boolean) {
+    private fun hookInputMethodModuleManager(isNonCustomize: Boolean) {
         runCatching {
             findMethod("android.inputmethodservice.InputMethodModuleManager") {
                 name == "loadDex" && parameterTypes.sameAs(ClassLoader::class.java, String::class.java)
@@ -490,8 +492,15 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
                 customizeBottomViewColor(clazz, forceTransparent)
             }
         }.onFailure {
-           .remove)
-            Log.i("Failed to set the color of the MiuiBottomView Log privateColor Class<*>,Trans) val resolveTransparentBottomViewContentColor()
+            installedHookTokens.remove(token)
+            Log.i("Failed to set the color of the MiuiBottomView")
+            Log.i(it)
+        }
+    }
+
+    private fun customizeBottomViewColor(clazz: Class<*>, forceTransparent: Boolean) {
+        if (forceTransparent) {
+            val contentColor = resolveTransparentBottomViewContentColor()
             clazz.invokeStaticMethodAuto(
                 "customizeBottomViewColor",
                 true,
@@ -566,7 +575,6 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     // ===== 新增：下滑手势 Hook =====
-
     private fun hookWeTypeSwipeGesture(lpparam: XC_LoadPackage.LoadPackageParam) {
         val keyboardViewClass = "com.tencent.wetype.plugin.hld.keyboard.selfdraw.n"
         runCatching {
@@ -603,20 +611,18 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
                         // 执行操作
                         if (action.menuActionId > 0) {
-                            // 系统菜单动作（全选/复制/粘贴/剪切/撤销/重做）
                             val listener = XposedHelpers.getObjectField(thisObj, "h")
                             val imeService = XposedHelpers.callMethod(listener, "e")
                             val ic = XposedHelpers.callMethod(imeService, "d0")
                                 as? android.view.inputmethod.InputConnection
                             ic?.performContextMenuAction(action.menuActionId)
                         } else {
-                            // 输出符号（@ # $ % 等）
                             val listener = XposedHelpers.getObjectField(thisObj, "h")
                             val imeService = XposedHelpers.callMethod(listener, "e")
                             XposedHelpers.callMethod(imeService, "commitText", action.displayName, 1)
                         }
 
-                        param.result = true  // 阻止原字符输出
+                        param.result = true
                     }
                 }
             )
